@@ -1,13 +1,17 @@
-name: Build Flet APK
+name: Build and Release Flet APK
 
 on:
   push:
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,16 +27,31 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
       - name: Install Flet
         run: pip install "flet[all]==0.27.6"
 
       - name: Build APK
         run: flet build apk -v
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: flet-apk
-          path: build/apk/*.apk
-          if-no-files-found: error
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK=$(find build -name "*.apk" | head -n 1)
+          echo "APK_PATH=$APK" >> $GITHUB_ENV
+          echo "Found: $APK"
+          ls -lh "$APK"
 
+      - name: Create Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK_PATH }}
+          generate_release_notes: true
+          # اسم الملف اللي رح يظهر بالـ Release
+          # اذا بدك اسم ثابت غيره هون
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
